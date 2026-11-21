@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Fetch chiaki-ng (only needed submodules)
         run: |
           git submodule update --init --depth 1 third_party/chiaki-ng
@@ -45,7 +45,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Fetch chiaki-ng (only needed submodules)
         run: |
           git submodule update --init --depth 1 third_party/chiaki-ng

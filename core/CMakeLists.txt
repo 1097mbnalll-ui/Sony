@@ -3,6 +3,9 @@
 cmake_minimum_required(VERSION 3.20)
 project(tarjuman_core C)
 
+# mbedtls 2.28 declares an old cmake_minimum_required; newer CMake refuses it.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 option(TRJM_BUILD_TESTS "Build host smoke tests" OFF)
