@@ -2,7 +2,7 @@
 
 ## 1) سجّل معرّف التطبيق (Bundle ID)
 1. ادخل developer.apple.com ← Certificates, IDs & Profiles ← Identifiers ← زر +
-2. اختر App IDs ← App ← اكتب الوصف `Tarjuman` والـ Bundle ID مثل `com.اسمك.tarjuman` (حروف إنجليزية).
+2. اختر App IDs ← App ← اكتب الوصف `Tarjuman` والـ Bundle ID (Explicit) بالضبط: `io.github.mbnalll.tarjuman`
 3. ما يحتاج تفعّل أي خدمات إضافية. احفظ.
 
 ## 2) أنشئ التطبيق في App Store Connect
@@ -26,10 +26,7 @@
 | `ASC_ISSUER_ID` | الـ Issuer ID |
 | `ASC_KEY_P8` | افتح ملف `.p8` بالمفكرة وانسخ كل محتواه والصقه |
 
-**Variables** (تبويب Variables ← New repository variable):
-| الاسم | القيمة |
-|---|---|
-| `APP_BUNDLE_ID` | نفس الـ Bundle ID من الخطوة 1 |
+(اختياري) إذا استخدمت Bundle ID غير `io.github.mbnalll.tarjuman`، أضف في تبويب **Variables** متغيّر اسمه `APP_BUNDLE_ID` بقيمته.
 
 ## 5) شغّل البناء
 Actions ← Build & TestFlight ← Run workflow ← اختر الفرع ← Run.

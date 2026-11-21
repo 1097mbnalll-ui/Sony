@@ -5,7 +5,7 @@ name: Build & TestFlight
 # - "Run workflow" (manual) with upload=true: signs and uploads to TestFlight.
 #   Needs these repository secrets (Settings → Secrets and variables → Actions):
 #     APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8
-#   and the repository variable APP_BUNDLE_ID (e.g. com.yourname.tarjuman).
+#   Optional repository variable APP_BUNDLE_ID (default io.github.mbnalll.tarjuman).
 
 on:
   push:
@@ -99,7 +99,8 @@ jobs:
           BUNDLE_ID: ${{ vars.APP_BUNDLE_ID }}
         run: |
           set -euo pipefail
-          if [ -z "${BUNDLE_ID}" ]; then echo "::error::Set repository variable APP_BUNDLE_ID"; exit 1; fi
+          BUNDLE_ID="${BUNDLE_ID:-io.github.mbnalll.tarjuman}"
+          echo "Bundle ID: $BUNDLE_ID"
           KEY_PATH="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
           # Accept the .p8 pasted as-is or base64 encoded.
           if printf '%s' "$ASC_KEY_P8" | grep -q "BEGIN PRIVATE KEY"; then
