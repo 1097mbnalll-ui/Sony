@@ -1,0 +1,7 @@
+build/
+app/Tarjuman.xcodeproj/
+*.xcarchive
+*.p8
+.DS_Store
+xcuserdata/
+DerivedData/

@@ -1,0 +1,125 @@
+name: Build & TestFlight
+
+# - Every push: builds and tests the core on Linux and compiles the iOS app
+#   (unsigned) so mistakes show up quickly.
+# - "Run workflow" (manual) with upload=true: signs and uploads to TestFlight.
+#   Needs these repository secrets (Settings → Secrets and variables → Actions):
+#     APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8
+#   and the repository variable APP_BUNDLE_ID (e.g. com.yourname.tarjuman).
+
+on:
+  push:
+    branches: ["**"]
+    paths-ignore: ["docs/**", "**.md"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Upload to TestFlight"
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch chiaki-ng (only needed submodules)
+        run: |
+          git submodule update --init --depth 1 third_party/chiaki-ng
+          git -C third_party/chiaki-ng submodule update --init --depth 1 \
+            third-party/nanopb third-party/jerasure third-party/gf-complete
+      - run: pip install protobuf grpcio-tools
+      - name: Build core + smoke test
+        run: |
+          cmake -S core -B build/host -DTRJM_BUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/host -j 4
+          timeout 120 build/host/trjm_smoke
+
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch chiaki-ng (only needed submodules)
+        run: |
+          git submodule update --init --depth 1 third_party/chiaki-ng
+          git -C third_party/chiaki-ng submodule update --init --depth 1 \
+            third-party/nanopb third-party/jerasure third-party/gf-complete
+      - name: Select newest Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+      - name: Tools
+        run: |
+          brew install xcodegen
+          python3 -m pip install --break-system-packages protobuf grpcio-tools || python3 -m pip install protobuf grpcio-tools
+
+      - name: Build core for iOS (arm64)
+        run: core/scripts/build-ios.sh
+
+      - name: Generate Xcode project
+        run: cd app && xcodegen generate
+
+      - name: Decide signing
+        id: mode
+        env:
+          HAS_KEY: ${{ secrets.ASC_KEY_P8 != '' && secrets.ASC_KEY_ID != '' && secrets.ASC_ISSUER_ID != '' && secrets.APPLE_TEAM_ID != '' }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.upload }}" = "true" ] && [ "$HAS_KEY" = "true" ]; then
+            echo "upload=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "upload=false" >> "$GITHUB_OUTPUT"
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$HAS_KEY" != "true" ]; then
+              echo "::warning::TestFlight secrets are missing; doing an unsigned build only."
+            fi
+          fi
+
+      - name: Compile (unsigned check)
+        if: steps.mode.outputs.upload != 'true'
+        run: |
+          set -o pipefail
+          xcodebuild -project app/Tarjuman.xcodeproj -scheme Tarjuman -configuration Release \
+            -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build | tee build.log | grep -E "error:|warning: .*deprecated|BUILD" || true
+          grep -q "BUILD SUCCEEDED" build.log
+
+      - name: Archive & upload to TestFlight
+        if: steps.mode.outputs.upload == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          BUNDLE_ID: ${{ vars.APP_BUNDLE_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BUNDLE_ID}" ]; then echo "::error::Set repository variable APP_BUNDLE_ID"; exit 1; fi
+          KEY_PATH="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          # Accept the .p8 pasted as-is or base64 encoded.
+          if printf '%s' "$ASC_KEY_P8" | grep -q "BEGIN PRIVATE KEY"; then
+            printf '%s\n' "$ASC_KEY_P8" > "$KEY_PATH"
+          else
+            printf '%s' "$ASC_KEY_P8" | base64 --decode > "$KEY_PATH"
+          fi
+          AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$KEY_PATH"
+                -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 100))
+
+          xcodebuild -project app/Tarjuman.xcodeproj -scheme Tarjuman -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath build/Tarjuman.xcarchive \
+            DEVELOPMENT_TEAM="$TEAM_ID" PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            "${AUTH[@]}" archive | tail -n 40
+
+          sed "s/__TEAM_ID__/$TEAM_ID/" app/ExportOptions.plist > build/ExportOptions.plist
+          xcodebuild -exportArchive -archivePath build/Tarjuman.xcarchive \
+            -exportOptionsPlist build/ExportOptions.plist -exportPath build/export \
+            "${AUTH[@]}" | tail -n 40
+          rm -f "$KEY_PATH"
+          echo "### Uploaded build $BUILD_NUMBER to App Store Connect" >> "$GITHUB_STEP_SUMMARY"

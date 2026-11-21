@@ -1,0 +1,34 @@
+# XcodeGen spec — the .xcodeproj is generated in CI (no Mac needed locally).
+name: Tarjuman
+options:
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Tarjuman:
+    type: application
+    platform: iOS
+    sources:
+      - path: Tarjuman
+        excludes:
+          - "**/*.h"
+    settings:
+      base:
+        PRODUCT_NAME: Tarjuman
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.tarjuman
+        INFOPLIST_FILE: Tarjuman/Resources/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SWIFT_OBJC_BRIDGING_HEADER: Tarjuman/Core/Tarjuman-Bridging-Header.h
+        HEADER_SEARCH_PATHS: $(SRCROOT)/../core/bridge
+        LIBRARY_SEARCH_PATHS: $(SRCROOT)/../build/ios/lib
+        OTHER_LDFLAGS: -ltrjm_core
+        ENABLE_BITCODE: NO
+        DEAD_CODE_STRIPPING: YES
