@@ -30,6 +30,8 @@ final class StreamController: ObservableObject {
     private var statsTimer: Timer?
     private var wakeTask: Task<Void, Never>?
     private let frameLock = NSLock()
+    /// Forward the phone-paired controller (advanced setting).
+    private var forwardInput = false
 
     /// Passed to C as `user`; lets late callbacks from an old session be ignored.
     final class SessionContext {
@@ -40,7 +42,7 @@ final class StreamController: ObservableObject {
 
     init() {
         gamepad.onChange = { [weak self] input in
-            guard let self, let s = self.session else { return }
+            guard let self, self.forwardInput, let s = self.session else { return }
             var input = input
             _ = trjm_session_set_input(s, &input)
         }
@@ -92,6 +94,7 @@ final class StreamController: ObservableObject {
 
     private func connect(console: Console, settings: AppSettings) {
         generation += 1
+        forwardInput = settings.phoneController
         let codec: VideoDecoder.Codec = (settings.useHEVC && console.ps5) ? .hevc : .h264
         decoder.reset(codec: codec)
         renderer.clear()
@@ -138,8 +141,10 @@ final class StreamController: ObservableObject {
         }
         session = s
         context = ctx
-        var input = gamepad.current
-        _ = trjm_session_set_input(s, &input)
+        if forwardInput {
+            var input = gamepad.current
+            _ = trjm_session_set_input(s, &input)
+        }
         UIApplication.shared.isIdleTimerDisabled = true
         startStats()
     }
@@ -185,6 +190,7 @@ final class StreamController: ObservableObject {
             LogStore.shared.info("Stream connected")
             state = .streaming
         case TRJM_EVENT_RUMBLE:
+            guard forwardInput else { break }
             gamepad.rumble(left: UInt8((code >> 8) & 0xff), right: UInt8(code & 0xff))
         case TRJM_EVENT_LOGIN_PIN_REQUEST:
             loginPinWasWrong = code != 0

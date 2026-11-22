@@ -14,14 +14,20 @@ struct PairingView: View {
     @State private var selectedAddr: String?
     @State private var manualIP = ""
     @State private var pin = ""
+    @AppStorage("secondAccountAck") private var secondAccountAck = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    accountStep
-                    consoleStep
-                    pinStep
+                    secondAccountCard
+                    Group {
+                        accountStep
+                        consoleStep
+                        pinStep
+                    }
+                    .disabled(!secondAccountAck)
+                    .opacity(secondAccountAck ? 1 : 0.45)
                 }
                 .padding(16)
             }
@@ -62,17 +68,54 @@ struct PairingView: View {
         }
     }
 
+    // MARK: second account
+
+    private var secondAccountCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: secondAccountAck ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(secondAccountAck ? Theme.accent : Theme.warning)
+                Text("قبل لا تبدأ: حساب ثاني للجوال")
+                    .font(.headline)
+                    .foregroundStyle(secondAccountAck ? Color.white : Theme.warning)
+                Spacer()
+            }
+            if !secondAccountAck {
+                Text("الـPS5 يعطي التحكم للحساب اللي يتصل فيه الجوال. عشان تلعب بيدك وحسابك الأساسي، الجوال لازم يتصل بحساب ثاني (مرة وحدة بس).")
+                    .font(.subheadline).foregroundStyle(Theme.secondaryText)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("١. سوّ حساب PSN مجاني جديد.")
+                    Text("٢. في الـPS5: أضف مستخدم جديد وسجّل فيه.")
+                    Text("٣. وهو داخل: الإعدادات ← النظام ← التشغيل عن بُعد ← فعّله.")
+                    Text("٤. ارجع لحسابك الأساسي.")
+                }
+                .font(.subheadline).foregroundStyle(Theme.secondaryText)
+                Button("سويتها ✓") { secondAccountAck = true }
+                    .buttonStyle(SecondaryButtonStyle())
+            } else {
+                Button("اعرض الخطوات مرة ثانية") { secondAccountAck = false }
+                    .font(.footnote)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background((secondAccountAck ? Theme.card : Theme.warning.opacity(0.12)),
+                    in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .stroke(secondAccountAck ? Theme.cardBorder : Theme.warning.opacity(0.35)))
+    }
+
     // MARK: step 1
 
     private var accountStep: some View {
         VStack(alignment: .leading, spacing: 12) {
-            stepTitle(1, "حساب PSN", done: consoles.accountId != nil)
+            stepTitle(1, "سجّل دخول بالحساب الثاني", done: consoles.accountId != nil)
             if consoles.accountId != nil {
                 Text("تم حفظ رقم حسابك.").font(.subheadline).foregroundStyle(Theme.secondaryText)
                 Button("غيّره") { consoles.accountIdBase64 = "" }
                     .font(.subheadline)
             } else {
-                Text("الجهاز يحتاج رقم حسابك في PSN عشان يقبل الربط. سجّل دخول مرة وحدة وبنجيبه تلقائي (ما نحفظ كلمة المرور).")
+                Text("سجّل بالحساب الثاني، **مو حسابك الأساسي**. نجيب رقم الحساب تلقائي وما نحفظ كلمة المرور.")
                     .font(.subheadline).foregroundStyle(Theme.secondaryText)
                 Button("سجّل دخول PSN") { showLogin = true }
                     .buttonStyle(PrimaryButtonStyle())

@@ -106,6 +106,8 @@ final class AppSettings: ObservableObject {
     @Published var autoSpeak: Bool { didSet { d.set(autoSpeak, forKey: "autoSpeak") } }
     @Published var fontSize: Double { didSet { d.set(fontSize, forKey: "fontSize") } }
     @Published var gameName: String { didSet { d.set(gameName, forKey: "gameName") } }
+    /// Advanced: send a controller paired with the phone to the console.
+    @Published var phoneController: Bool { didSet { d.set(phoneController, forKey: "phoneController") } }
     /// Dialogue region, normalized, origin top-left.
     @Published var region: CGRect {
         didSet { d.set([region.minX, region.minY, region.width, region.height], forKey: "region") }
@@ -122,6 +124,7 @@ final class AppSettings: ObservableObject {
         autoSpeak = d.object(forKey: "autoSpeak") as? Bool ?? false
         fontSize = d.object(forKey: "fontSize") as? Double ?? 24
         gameName = d.string(forKey: "gameName") ?? ""
+        phoneController = d.object(forKey: "phoneController") as? Bool ?? false
         if let r = d.array(forKey: "region") as? [Double], r.count == 4, r[2] > 0.02, r[3] > 0.02 {
             region = CGRect(x: r[0], y: r[1], width: r[2], height: r[3])
         } else {

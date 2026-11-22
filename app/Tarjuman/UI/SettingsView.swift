@@ -72,6 +72,14 @@ struct SettingsView: View {
                     Button("ربط جهاز جديد") { showPairing = true }
                 }
 
+                Section {
+                    Toggle("استخدم يد متصلة بالجوال", isOn: $settings.phoneController)
+                } header: {
+                    Text("متقدم")
+                } footer: {
+                    Text("للي ربط الجوال بحسابه الأساسي: توصّل اليد بالجوال بالبلوتوث، وترجمان يرسل ضغطاتك للـPS5. الطريقة العادية هي حساب ثاني للجوال ويدك تبقى على الـPS5.")
+                }
+
                 Section("حساب PSN") {
                     if consoles.accountId != nil {
                         Text("محفوظ")

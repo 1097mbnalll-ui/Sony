@@ -16,6 +16,7 @@ struct HomeView: View {
     @State private var showSettings = false
     @State private var editingRegion = false
     @State private var loginPin = ""
+    @State private var showConnectedTip = false
 
     var body: some View {
         NavigationStack {
@@ -23,8 +24,11 @@ struct HomeView: View {
                 VStack(spacing: 12) {
                     if let console = consoles.current {
                         header(console)
-                        ControllerStatusView(gamepad: stream.gamepad)
+                        if settings.phoneController {
+                            ControllerStatusView(gamepad: stream.gamepad)
+                        }
                         preview
+                        if showConnectedTip { connectedTip }
                         translationCard
                         historyList
                     } else {
@@ -61,8 +65,16 @@ struct HomeView: View {
         .onAppear { scanner.start() }
         .onReceive(scanner.$hosts) { _ in model.reconcile() }
         .onChange(of: stream.state) { state in
-            if state == .streaming { translator.streamStarted() }
-            else if !stream.isActive { translator.streamStopped() }
+            if state == .streaming {
+                translator.streamStarted()
+                if !settings.phoneController {
+                    withAnimation { showConnectedTip = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 25) { withAnimation { showConnectedTip = false } }
+                }
+            } else if !stream.isActive {
+                showConnectedTip = false
+                translator.streamStopped()
+            }
         }
         .onChange(of: settings.autoTranslate) { on in translator.setAuto(on) }
         .onChange(of: scenePhase) { phase in
@@ -162,6 +174,25 @@ struct HomeView: View {
         case .failed(let msg): return msg
         default: return "اضغط «ابدأ البث» عشان تشوف الصورة هنا"
         }
+    }
+
+    private var connectedTip: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            (Text("🎮 ") + Text("اتصل! ").bold().foregroundColor(Theme.accent)
+             + Text("اضغط زر PS في يدك واختر ") + Text("حسابك الأساسي").bold().foregroundColor(Theme.accent)
+             + Text("، وكمّل لعب عادي على الشاشة."))
+                .font(.subheadline)
+                .lineSpacing(4)
+            HStack {
+                Spacer()
+                Button("تمام") { withAnimation { showConnectedTip = false } }
+                    .font(.subheadline.weight(.bold))
+            }
+        }
+        .padding(14)
+        .background(Theme.accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Theme.accent.opacity(0.7)))
+        .transition(.opacity)
     }
 
     // MARK: - translation
