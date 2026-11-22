@@ -99,8 +99,41 @@ typedef enum {
 	TRJM_EVENT_CONNECTED = 0,
 	TRJM_EVENT_LOGIN_PIN_REQUEST = 1,
 	TRJM_EVENT_QUIT = 2,
-	TRJM_EVENT_NICKNAME = 3
+	TRJM_EVENT_NICKNAME = 3,
+	/** code = (left << 8) | right, motor strength 0-255 each */
+	TRJM_EVENT_RUMBLE = 4
 } TrjmEventType;
+
+// ------------------------------------------------------- controller input
+// The player's own controller (paired with the phone) is forwarded to the
+// console, because the Remote Play session takes over the console's local
+// controller for the same PSN account.
+
+#define TRJM_BTN_CROSS      (1u << 0)
+#define TRJM_BTN_CIRCLE     (1u << 1)
+#define TRJM_BTN_SQUARE     (1u << 2)
+#define TRJM_BTN_TRIANGLE   (1u << 3)
+#define TRJM_BTN_DPAD_LEFT  (1u << 4)
+#define TRJM_BTN_DPAD_RIGHT (1u << 5)
+#define TRJM_BTN_DPAD_UP    (1u << 6)
+#define TRJM_BTN_DPAD_DOWN  (1u << 7)
+#define TRJM_BTN_L1         (1u << 8)
+#define TRJM_BTN_R1         (1u << 9)
+#define TRJM_BTN_L3         (1u << 10)
+#define TRJM_BTN_R3         (1u << 11)
+#define TRJM_BTN_OPTIONS    (1u << 12)
+#define TRJM_BTN_CREATE     (1u << 13)
+#define TRJM_BTN_TOUCHPAD   (1u << 14)
+#define TRJM_BTN_PS         (1u << 15)
+
+typedef struct {
+	uint32_t buttons;      // TRJM_BTN_* bitmask
+	uint8_t l2, r2;        // 0-255
+	int16_t left_x, left_y, right_x, right_y; // -32768..32767, y down is positive
+	bool touch_active[2];
+	uint16_t touch_x[2];   // 0-1919
+	uint16_t touch_y[2];   // 0-941
+} TrjmControllerInput;
 
 /** Quit codes delivered with TRJM_EVENT_QUIT (0 = normal end). */
 #define TRJM_QUIT_REQUEST_UNKNOWN 2
@@ -149,6 +182,8 @@ typedef struct TrjmSession TrjmSession;
 
 TrjmSession *trjm_session_start(const TrjmSessionConfig *config, const TrjmSessionCallbacks *callbacks, int *err_out);
 int trjm_session_request_keyframe(TrjmSession *session);
+/** Thread-safe. The latest state is resent by chiaki until changed. */
+int trjm_session_set_input(TrjmSession *session, const TrjmControllerInput *input);
 int trjm_session_set_login_pin(TrjmSession *session, const char *pin);
 /** Stops, joins and frees. Never call from inside a callback. */
 void trjm_session_free(TrjmSession *session);

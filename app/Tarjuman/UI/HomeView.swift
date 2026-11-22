@@ -23,6 +23,7 @@ struct HomeView: View {
                 VStack(spacing: 12) {
                     if let console = consoles.current {
                         header(console)
+                        ControllerStatusView(gamepad: stream.gamepad)
                         preview
                         translationCard
                         historyList

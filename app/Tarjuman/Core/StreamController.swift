@@ -21,6 +21,7 @@ final class StreamController: ObservableObject {
 
     let decoder = VideoDecoder()
     let renderer = PreviewRenderer()
+    let gamepad = GamepadInput()
 
     private var session: OpaquePointer?
     private var context: Unmanaged<SessionContext>?
@@ -38,6 +39,11 @@ final class StreamController: ObservableObject {
     }
 
     init() {
+        gamepad.onChange = { [weak self] input in
+            guard let self, let s = self.session else { return }
+            var input = input
+            _ = trjm_session_set_input(s, &input)
+        }
         decoder.onFrame = { [weak self] pb in
             guard let self else { return }
             self.renderer.display(pb)
@@ -132,6 +138,8 @@ final class StreamController: ObservableObject {
         }
         session = s
         context = ctx
+        var input = gamepad.current
+        _ = trjm_session_set_input(s, &input)
         UIApplication.shared.isIdleTimerDisabled = true
         startStats()
     }
@@ -176,6 +184,8 @@ final class StreamController: ObservableObject {
         case TRJM_EVENT_CONNECTED:
             LogStore.shared.info("Stream connected")
             state = .streaming
+        case TRJM_EVENT_RUMBLE:
+            gamepad.rumble(left: UInt8((code >> 8) & 0xff), right: UInt8(code & 0xff))
         case TRJM_EVENT_LOGIN_PIN_REQUEST:
             loginPinWasWrong = code != 0
             loginPinRequested = true

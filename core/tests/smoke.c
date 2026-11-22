@@ -132,6 +132,17 @@ int main(void)
 	if(!s) { fprintf(stderr, "FAIL session_start err=%d %s\n", err, trjm_error_string(err)); fails++; }
 	else
 	{
+		TrjmControllerInput in;
+		memset(&in, 0, sizeof(in));
+		in.buttons = TRJM_BTN_CROSS | TRJM_BTN_PS;
+		in.r2 = 255;
+		in.left_y = -32768;
+		in.touch_active[0] = true;
+		in.touch_x[0] = 5000; // clamped
+		in.touch_y[0] = 100;
+		fprintf(stderr, "set_input -> %d\n", trjm_session_set_input(s, &in));
+		in.touch_active[0] = false;
+		trjm_session_set_input(s, &in);
 		WAIT_FOR(atomic_load(&quit_events), 15000);
 		if(!atomic_load(&quit_events)) { fprintf(stderr, "FAIL no quit event\n"); fails++; }
 		else fprintf(stderr, "OK session quit cleanly\n");

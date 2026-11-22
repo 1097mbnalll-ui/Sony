@@ -19,6 +19,10 @@
 #include <string.h>
 #include <sys/socket.h>
 
+_Static_assert(TRJM_BTN_CIRCLE == CHIAKI_CONTROLLER_BUTTON_MOON, "buttons");
+_Static_assert(TRJM_BTN_TRIANGLE == CHIAKI_CONTROLLER_BUTTON_PYRAMID, "buttons");
+_Static_assert(TRJM_BTN_CREATE == CHIAKI_CONTROLLER_BUTTON_SHARE, "buttons");
+_Static_assert(TRJM_BTN_PS == CHIAKI_CONTROLLER_BUTTON_PS, "buttons");
 _Static_assert(TRJM_QUIT_CONNECTION_REFUSED == CHIAKI_QUIT_REASON_SESSION_REQUEST_CONNECTION_REFUSED, "quit codes");
 _Static_assert(TRJM_QUIT_RP_IN_USE == CHIAKI_QUIT_REASON_SESSION_REQUEST_RP_IN_USE, "quit codes");
 _Static_assert(TRJM_QUIT_VERSION_MISMATCH == CHIAKI_QUIT_REASON_SESSION_REQUEST_RP_VERSION_MISMATCH, "quit codes");
@@ -310,6 +314,9 @@ struct TrjmSession
 	bool opus_active;
 	char *host;
 	TrjmSessionCallbacks cb;
+	ChiakiMutex input_mutex;
+	ChiakiControllerState controller;
+	bool touch_was_active[2];
 };
 
 static void session_event_cb(ChiakiEvent *event, void *user)
@@ -333,6 +340,9 @@ static void session_event_cb(ChiakiEvent *event, void *user)
 			s->cb.event(TRJM_EVENT_NICKNAME, 0, nick, s->cb.user);
 			break;
 		}
+		case CHIAKI_EVENT_RUMBLE:
+			s->cb.event(TRJM_EVENT_RUMBLE, ((int)event->rumble.left << 8) | event->rumble.right, NULL, s->cb.user);
+			break;
 		case CHIAKI_EVENT_QUIT:
 		{
 			const char *msg = event->quit.reason_str ? event->quit.reason_str : chiaki_quit_reason_string(event->quit.reason);
@@ -435,16 +445,17 @@ TrjmSession *trjm_session_start(const TrjmSessionConfig *config, const TrjmSessi
 		s->opus_active = true;
 	}
 
-	// Tarjuman is a viewer: the controller state stays idle forever.
-	ChiakiControllerState idle;
-	chiaki_controller_state_set_idle(&idle);
-	chiaki_session_set_controller_state(&s->session, &idle);
+	// Starts idle; the phone-paired controller (if any) updates it.
+	chiaki_mutex_init(&s->input_mutex, false);
+	chiaki_controller_state_set_idle(&s->controller);
+	chiaki_session_set_controller_state(&s->session, &s->controller);
 
 	g_last_app_reason = 0;
 	err = chiaki_session_start(&s->session);
 	if(err != CHIAKI_ERR_SUCCESS)
 	{
 		chiaki_session_fini(&s->session);
+		chiaki_mutex_fini(&s->input_mutex);
 		if(s->opus_active)
 			chiaki_opus_decoder_fini(&s->opus);
 		goto fail;
@@ -471,6 +482,40 @@ int trjm_session_request_keyframe(TrjmSession *s)
 	return (int)chiaki_session_request_idr(&s->session);
 }
 
+int trjm_session_set_input(TrjmSession *s, const TrjmControllerInput *in)
+{
+	if(!s || !in)
+		return CHIAKI_ERR_INVALID_DATA;
+	chiaki_mutex_lock(&s->input_mutex);
+	ChiakiControllerState *c = &s->controller;
+	c->buttons = in->buttons & 0xffff;
+	c->l2_state = in->l2;
+	c->r2_state = in->r2;
+	c->left_x = in->left_x;
+	c->left_y = in->left_y;
+	c->right_x = in->right_x;
+	c->right_y = in->right_y;
+	for(int i = 0; i < 2; i++)
+	{
+		if(in->touch_active[i])
+		{
+			if(!s->touch_was_active[i])
+			{
+				c->touches[i].id = (int8_t)(c->touch_id_next & 0x7f);
+				c->touch_id_next = (c->touch_id_next + 1) & 0x7f;
+			}
+			c->touches[i].x = in->touch_x[i] > 1919 ? 1919 : in->touch_x[i];
+			c->touches[i].y = in->touch_y[i] > 941 ? 941 : in->touch_y[i];
+		}
+		else
+			c->touches[i].id = -1;
+		s->touch_was_active[i] = in->touch_active[i];
+	}
+	ChiakiControllerState copy = *c;
+	chiaki_mutex_unlock(&s->input_mutex);
+	return (int)chiaki_session_set_controller_state(&s->session, &copy);
+}
+
 int trjm_session_set_login_pin(TrjmSession *s, const char *pin)
 {
 	if(!s || !pin)
@@ -485,6 +530,7 @@ void trjm_session_free(TrjmSession *s)
 	chiaki_session_stop(&s->session);
 	chiaki_session_join(&s->session);
 	chiaki_session_fini(&s->session);
+	chiaki_mutex_fini(&s->input_mutex);
 	if(s->opus_active)
 		chiaki_opus_decoder_fini(&s->opus);
 	free(s->host);
