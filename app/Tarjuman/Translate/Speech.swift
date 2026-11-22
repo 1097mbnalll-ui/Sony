@@ -12,7 +12,6 @@ final class ArabicSpeech {
         synth.stopSpeaking(at: .immediate)
         let u = AVSpeechUtterance(string: text)
         u.voice = AVSpeechSynthesisVoice(language: "ar-SA") ?? AVSpeechSynthesisVoice(language: "ar")
-        u.rate = AVSpeechUtteranceDefaultRate
         synth.speak(u)
     }
 
