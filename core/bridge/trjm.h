@@ -113,6 +113,9 @@ typedef enum {
 #define TRJM_QUIT_CTRL_CONNECTION_REFUSED 9
 #define TRJM_QUIT_STREAM_UNKNOWN 10
 #define TRJM_QUIT_REMOTE_DISCONNECTED 11
+/** Console answered 0x80108b12: Remote Play not allowed for this PSN user
+ *  (disabled for the account, or the user is not signed in on the console). */
+#define TRJM_QUIT_ACCOUNT_NOT_ALLOWED 100
 
 typedef enum {
 	TRJM_CODEC_H264 = 0,

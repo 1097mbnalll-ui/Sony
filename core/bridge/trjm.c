@@ -30,10 +30,15 @@ _Static_assert(TRJM_QUIT_REMOTE_DISCONNECTED == CHIAKI_QUIT_REASON_STREAM_CONNEC
 static TrjmLogCb g_log_cb = NULL;
 static void *g_log_user = NULL;
 static ChiakiLog g_log;
+static ChiakiLog g_scan_log; // discovery sweep: per-address send errors are expected noise
+static volatile unsigned int g_last_app_reason = 0;
 
 static void log_forward(ChiakiLogLevel level, const char *msg, void *user)
 {
 	(void)user;
+	unsigned int reason = 0;
+	if(msg && sscanf(msg, "Reported Application Reason: %x", &reason) == 1)
+		g_last_app_reason = reason;
 	if(!g_log_cb)
 		return;
 	TrjmLogLevel l = TRJM_LOG_DEBUG;
@@ -52,6 +57,7 @@ int trjm_init(TrjmLogCb log_cb, void *log_user)
 	g_log_cb = log_cb;
 	g_log_user = log_user;
 	chiaki_log_init(&g_log, CHIAKI_LOG_ALL & ~CHIAKI_LOG_VERBOSE, log_forward, NULL);
+	chiaki_log_init(&g_scan_log, CHIAKI_LOG_INFO, log_forward, NULL);
 	return (int)chiaki_lib_init();
 }
 
@@ -113,7 +119,7 @@ TrjmScanner *trjm_scanner_new(TrjmHostCb cb, void *user)
 		return NULL;
 	scanner->cb = cb;
 	scanner->user = user;
-	if(chiaki_discovery_init(&scanner->discovery, &g_log, AF_INET) != CHIAKI_ERR_SUCCESS)
+	if(chiaki_discovery_init(&scanner->discovery, &g_scan_log, AF_INET) != CHIAKI_ERR_SUCCESS)
 	{
 		free(scanner);
 		return NULL;
@@ -331,6 +337,8 @@ static void session_event_cb(ChiakiEvent *event, void *user)
 		{
 			const char *msg = event->quit.reason_str ? event->quit.reason_str : chiaki_quit_reason_string(event->quit.reason);
 			int code = chiaki_quit_reason_is_error(event->quit.reason) ? (int)event->quit.reason : 0;
+			if(event->quit.reason == CHIAKI_QUIT_REASON_SESSION_REQUEST_UNKNOWN && g_last_app_reason == 0x80108b12)
+				code = TRJM_QUIT_ACCOUNT_NOT_ALLOWED;
 			s->cb.event(TRJM_EVENT_QUIT, code, msg, s->cb.user);
 			break;
 		}
@@ -432,6 +440,7 @@ TrjmSession *trjm_session_start(const TrjmSessionConfig *config, const TrjmSessi
 	chiaki_controller_state_set_idle(&idle);
 	chiaki_session_set_controller_state(&s->session, &idle);
 
+	g_last_app_reason = 0;
 	err = chiaki_session_start(&s->session);
 	if(err != CHIAKI_ERR_SUCCESS)
 	{

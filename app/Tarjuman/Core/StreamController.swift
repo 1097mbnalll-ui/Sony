@@ -215,6 +215,8 @@ final class StreamController: ObservableObject {
             return "الجهاز رفض الاتصال. تأكد إنه شغّال وإن التشغيل عن بُعد مفعّل."
         case Int(TRJM_QUIT_VERSION_MISMATCH):
             return "إصدار نظام الجهاز غير مدعوم."
+        case Int(TRJM_QUIT_ACCOUNT_NOT_ALLOWED):
+            return "الجهاز رفض حسابك (80108b12). تأكد إن حساب PSN اللي سجلت فيه بالتطبيق هو نفس الحساب الشغّال على الـPS5 الحين، وإن التشغيل عن بُعد مفعّل له."
         case Int(TRJM_QUIT_REMOTE_DISCONNECTED):
             return "الجهاز قطع الاتصال (يمكن دخل وضع الراحة أو الشبكة ضعيفة)."
         default:
