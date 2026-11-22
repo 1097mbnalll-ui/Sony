@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
+import CoreGraphics
 import Foundation
 
 /// A console that finished registration. Keys are stored in the Keychain.
@@ -93,14 +94,38 @@ final class ConsoleStore: ObservableObject {
 
 /// Non-secret preferences.
 final class AppSettings: ObservableObject {
-    @Published var resolution: Int { didSet { UserDefaults.standard.set(resolution, forKey: "resolution") } }
-    @Published var fps: Int { didSet { UserDefaults.standard.set(fps, forKey: "fps") } }
-    @Published var useHEVC: Bool { didSet { UserDefaults.standard.set(useHEVC, forKey: "hevc") } }
+    private let d = UserDefaults.standard
+
+    // stream
+    @Published var resolution: Int { didSet { d.set(resolution, forKey: "resolution") } }
+    @Published var fps: Int { didSet { d.set(fps, forKey: "fps") } }
+    @Published var useHEVC: Bool { didSet { d.set(useHEVC, forKey: "hevc") } }
+
+    // translation
+    @Published var autoTranslate: Bool { didSet { d.set(autoTranslate, forKey: "autoTranslate") } }
+    @Published var autoSpeak: Bool { didSet { d.set(autoSpeak, forKey: "autoSpeak") } }
+    @Published var fontSize: Double { didSet { d.set(fontSize, forKey: "fontSize") } }
+    @Published var gameName: String { didSet { d.set(gameName, forKey: "gameName") } }
+    /// Dialogue region, normalized, origin top-left.
+    @Published var region: CGRect {
+        didSet { d.set([region.minX, region.minY, region.width, region.height], forKey: "region") }
+    }
+
+    static let defaultRegion = CGRect(x: 0.08, y: 0.72, width: 0.84, height: 0.24)
 
     init() {
         let d = UserDefaults.standard
         resolution = d.object(forKey: "resolution") as? Int ?? 720
         fps = d.object(forKey: "fps") as? Int ?? 30
         useHEVC = d.object(forKey: "hevc") as? Bool ?? false
+        autoTranslate = d.object(forKey: "autoTranslate") as? Bool ?? true
+        autoSpeak = d.object(forKey: "autoSpeak") as? Bool ?? false
+        fontSize = d.object(forKey: "fontSize") as? Double ?? 24
+        gameName = d.string(forKey: "gameName") ?? ""
+        if let r = d.array(forKey: "region") as? [Double], r.count == 4, r[2] > 0.02, r[3] > 0.02 {
+            region = CGRect(x: r[0], y: r[1], width: r[2], height: r[3])
+        } else {
+            region = AppSettings.defaultRegion
+        }
     }
 }

@@ -15,6 +15,8 @@ struct TarjumanApp: App {
                 .environmentObject(model.scanner)
                 .environmentObject(model.stream)
                 .environmentObject(model.settings)
+                .environmentObject(model.translator)
+                .environmentObject(model.translator.apple)
                 .environment(\.layoutDirection, .rightToLeft)
                 .environment(\.locale, Locale(identifier: "ar"))
                 .preferredColorScheme(.dark)
@@ -24,13 +26,17 @@ struct TarjumanApp: App {
 }
 
 /// Wires the long-lived objects together.
+@MainActor
 final class AppModel: ObservableObject {
     let consoles = ConsoleStore()
     let scanner = HostScanner()
     let stream = StreamController()
     let settings = AppSettings()
+    let translator = LiveTranslator()
 
     init() {
+        let decoder = stream.decoder
+        translator.attach(settings: settings) { [weak decoder] in decoder?.latestFrame }
         for c in consoles.consoles { scanner.addTarget(c.host) }
     }
 

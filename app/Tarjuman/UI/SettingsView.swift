@@ -13,6 +13,35 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
+                    Toggle("ترجمة تلقائية", isOn: $settings.autoTranslate)
+                    Toggle("اقرأ الترجمة بصوت تلقائياً", isOn: $settings.autoSpeak)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("حجم الخط: \(Int(settings.fontSize))")
+                        Slider(value: $settings.fontSize, in: 16...40, step: 1)
+                        Text("مثال على حجم الترجمة")
+                            .font(.system(size: settings.fontSize, weight: .semibold))
+                    }
+                    TextField("اسم اللعبة (اختياري)", text: $settings.gameName)
+                    Button("رجّع منطقة القراءة للوضع الافتراضي") { settings.region = AppSettings.defaultRegion }
+                } header: {
+                    Text("الترجمة")
+                } footer: {
+                    Text("التلقائي يترجم أول ما يتغير النص في المنطقة المحددة. اليدوي يترجم بس لما تضغط «ترجم الحين».")
+                }
+
+                Section {
+                    HStack {
+                        Text("المحرك")
+                        Spacer()
+                        Text(TranslationProviderID.apple.title).foregroundStyle(Theme.secondaryText)
+                    }
+                } header: {
+                    Text("محرك الترجمة")
+                } footer: {
+                    Text("الترجمة تصير على جوالك نفسه، مجانية وبدون حد وتشتغل بدون إنترنت.")
+                }
+
+                Section {
                     Picker("الدقة", selection: $settings.resolution) {
                         Text("540p").tag(540)
                         Text("720p").tag(720)
